@@ -1,0 +1,2 @@
+data/SPD_Crime_Data__2008-Present_20231028.csv filter=lfs diff=lfs merge=lfs -text
+data/seattle_crime_complete_mcp.json filter=lfs diff=lfs merge=lfs -text
