@@ -10,6 +10,7 @@ from streamlit_folium import st_folium
 import pandas as pd
 import altair as alt
 import pydeck as pdk
+import numpy as np
 
 def display_map(seattle_mcpp):
     seattle_geo = folium.GeoJson(
@@ -185,11 +186,12 @@ def load_data():
     seattle_mcpp_complete = gpd.read_file("./data/seattle_crime_complete_mcp.json")
 
     # Loading model 
-    # crime_rate_model = joblib.load('./model/reg_rf_crimeRate_gridCV_SEASON.joblib')
+    crime_rate_model = joblib.load('./model/reg_lasso_crimeRate_all_SEASON.joblib')
 
-    # mcpp_census_df = pd.read_csv("./data/mcpp_2010_PopulationDemographic_estimate_df.csv")
+    mcpp_census_df = pd.read_csv("./data/mcpp_2010_PopulationDemographic_estimate_df.csv")
+    cleaned_mcpp_census_df = mcpp_census_df.drop(columns=['Unnamed: 0'])
 
-    return crime_df, seattle_mcpp, seattle_mcpp_complete
+    return crime_df, seattle_mcpp, seattle_mcpp_complete, crime_rate_model, cleaned_mcpp_census_df
 
 def main():
 
@@ -201,14 +203,13 @@ def main():
     st.title("Seattle Crime Dataset Demo")
 
     # load data
-    crime_df, seattle_mcpp, seattle_mcpp_complete = load_data()
+    crime_df, seattle_mcpp, seattle_mcpp_complete, crime_rate_model, mcpp_census_df = load_data()
     # build filters on sidebar
     year, year_labels, season, season_labels, is_3d_map = build_filters()
 
     is_prediction = year_labels[year] == "Future"
 
     if is_3d_map:
-
         display_3d_map(seattle_mcpp, seattle_mcpp_complete, year, year_labels, season, season_labels)
 
     else:
@@ -228,11 +229,22 @@ def main():
             comm_selected = "All"
             if st_data["last_active_drawing"]:
                 comm_selected = st_data["last_active_drawing"]["properties"]["neighborho"]
-            st.subheader(f'{season_labels[season]} of {year_labels[year]} in {comm_selected} community: ')
+            st.subheader(f'{season_labels[season]} season, {year_labels[year]} year in {comm_selected} community: ')
 
-            if is_prediction:
+            if is_prediction and comm_selected != "All" and season_labels[season] != "All":
                 # prediction
-                crime_rate_model.predict()
+                season_encode = {'Fall': 0, 'Spring': 1, 'Summer': 2, 'Winter': 3}
+                mcpp_index = mcpp_census_df.index[mcpp_census_df['MCPP'] == comm_selected].values[0]
+
+                userInput = [mcpp_index, season_encode[season_labels[season]]]
+
+                # gotta drop MCPP column
+                mcpp_census_df = mcpp_census_df.drop(columns=['MCPP'])
+                mcpp_data = mcpp_census_df.loc[userInput[0]].values.tolist()
+                X_test_modelInput = np.append(userInput, mcpp_data)
+                pred_output = crime_rate_model.predict(X_test_modelInput.reshape(1, -1))
+
+                st.metric("Crime Rate Prediction(per 1000 people):", "{:.2f}".format(pred_output.flatten()[0]))
 
             else:
                 # show data
