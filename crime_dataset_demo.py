@@ -173,6 +173,23 @@ def draw_donut_chart(time_filtered_offense):
 
     st.altair_chart((chart + text), theme="streamlit", use_container_width=True)
 
+def crime_rate_prediction(mcpp_census_df, season, season_labels):
+    season_encode = {'Fall': 0, 'Spring': 1, 'Summer': 2, 'Winter': 3}
+    mcpp_index = mcpp_census_df.index[mcpp_census_df['MCPP'] == comm_selected].values[0]
+
+    userInput = [mcpp_index, season_encode[season_labels[season]]]
+
+    # gotta drop MCPP column
+    mcpp_census_df = mcpp_census_df.drop(columns=['MCPP'])
+    mcpp_data = mcpp_census_df.loc[userInput[0]].values.tolist()
+    X_test_modelInput = np.append(userInput, mcpp_data)
+    pred_output = crime_rate_model.predict(X_test_modelInput.reshape(1, -1))
+
+    if pred_output < 0
+        return 0
+    else:
+        return pred_output
+
 # cache data if possible
 @st.cache_data
 def load_data():
@@ -233,17 +250,7 @@ def main():
 
             if is_prediction and comm_selected != "All" and season_labels[season] != "All":
                 # prediction
-                season_encode = {'Fall': 0, 'Spring': 1, 'Summer': 2, 'Winter': 3}
-                mcpp_index = mcpp_census_df.index[mcpp_census_df['MCPP'] == comm_selected].values[0]
-
-                userInput = [mcpp_index, season_encode[season_labels[season]]]
-
-                # gotta drop MCPP column
-                mcpp_census_df = mcpp_census_df.drop(columns=['MCPP'])
-                mcpp_data = mcpp_census_df.loc[userInput[0]].values.tolist()
-                X_test_modelInput = np.append(userInput, mcpp_data)
-                pred_output = crime_rate_model.predict(X_test_modelInput.reshape(1, -1))
-
+                pred_output = crime_rate_prediction(mcpp_census_df, season, season_labels)
                 st.metric("Crime Rate Prediction(per 1000 people):", "{:.2f}".format(pred_output.flatten()[0]))
 
             else:
