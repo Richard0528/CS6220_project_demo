@@ -173,7 +173,7 @@ def draw_donut_chart(time_filtered_offense):
 
     st.altair_chart((chart + text), theme="streamlit", use_container_width=True)
 
-def crime_rate_prediction(mcpp_census_df, season, season_labels):
+def crime_rate_prediction(mcpp_census_df, comm_selected, season, season_labels, crime_rate_model):
     season_encode = {'Fall': 0, 'Spring': 1, 'Summer': 2, 'Winter': 3}
     mcpp_index = mcpp_census_df.index[mcpp_census_df['MCPP'] == comm_selected].values[0]
 
@@ -185,7 +185,7 @@ def crime_rate_prediction(mcpp_census_df, season, season_labels):
     X_test_modelInput = np.append(userInput, mcpp_data)
     pred_output = crime_rate_model.predict(X_test_modelInput.reshape(1, -1))
 
-    if pred_output < 0
+    if pred_output < 0:
         return 0
     else:
         return pred_output
@@ -203,7 +203,8 @@ def load_data():
     seattle_mcpp_complete = gpd.read_file("./data/seattle_crime_complete_mcp.json")
 
     # Loading model 
-    crime_rate_model = joblib.load('./model/reg_lasso_crimeRate_all_SEASON.joblib')
+    # crime_rate_model = joblib.load('./model/reg_lasso_crimeRate_all_SEASON.joblib')
+    crime_rate_model = joblib.load('./model/reg_gb_crimeRate_gridCV_SEASON.joblib')
 
     mcpp_census_df = pd.read_csv("./data/mcpp_2010_PopulationDemographic_estimate_df.csv")
     cleaned_mcpp_census_df = mcpp_census_df.drop(columns=['Unnamed: 0'])
@@ -250,7 +251,7 @@ def main():
 
             if is_prediction and comm_selected != "All" and season_labels[season] != "All":
                 # prediction
-                pred_output = crime_rate_prediction(mcpp_census_df, season, season_labels)
+                pred_output = crime_rate_prediction(mcpp_census_df, comm_selected, season, season_labels, crime_rate_model)
                 st.metric("Crime Rate Prediction(per 1000 people):", "{:.2f}".format(pred_output.flatten()[0]))
 
             else:
