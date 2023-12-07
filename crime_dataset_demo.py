@@ -209,13 +209,17 @@ def load_data():
 
     # Loading model 
     crime_rate_model = joblib.load('./model/reg_gb_crimeRate_gridCV_SEASON.joblib')
+    crime_rate_range_df = pd.DataFrame({
+        "Range": ["Low", "Medium", "Medium High", "High"],
+        "Interval": ["14.5", "22.2", "32.2", "59.3"]
+    })
 
     mcpp_census_df = pd.read_csv("./data/mcpp_2010_PopulationDemographic_estimate_df.csv")
     cleaned_mcpp_census_df = mcpp_census_df.drop(columns=['Unnamed: 0'])
 
     likelihood_model = joblib.load('./model/CLF_grid_search_RF_SEASON.joblib')
 
-    return crime_df, seattle_mcpp, seattle_mcpp_complete, crime_rate_model, cleaned_mcpp_census_df, likelihood_model
+    return crime_df, seattle_mcpp, seattle_mcpp_complete, crime_rate_model, crime_rate_range_df, cleaned_mcpp_census_df, likelihood_model
 
 def main():
 
@@ -227,7 +231,7 @@ def main():
     st.title("Seattle Crime Dataset Demo")
 
     # load data
-    crime_df, seattle_mcpp, seattle_mcpp_complete, crime_rate_model, mcpp_census_df, likelihood_model = load_data()
+    crime_df, seattle_mcpp, seattle_mcpp_complete, crime_rate_model, crime_rate_range_df, mcpp_census_df, likelihood_model = load_data()
     # build filters on sidebar
     year, year_labels, season, season_labels, is_3d_map = build_filters()
 
@@ -275,6 +279,8 @@ def main():
                 # crime rate prediction
                 pred_output = crime_rate_prediction(mcpp_census_df, selected_mcpp_index, selected_season, crime_rate_model)
                 st.metric("Crime Rate Prediction(per 1000 people):", "{:.2f}".format(pred_output.flatten()[0]))
+
+                st.dataframe(crime_rate_range_df)
 
                 # likelihood prediction
                 predicted_top_offense, predicted_top_offense_prob = likelihood_prediction(selected_season, selected_mcpp_index, likelihood_model)
