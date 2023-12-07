@@ -98,7 +98,8 @@ def build_filters():
         format_func=(lambda x: season_labels[x])
     )
 
-    is_3d_map = st.sidebar.checkbox("Enable 3D Map")
+    is_pred = year_labels[year] == "Future"
+    is_3d_map = st.sidebar.checkbox("Enable 3D Map", disabled=is_pred)
 
     return year, year_labels, season, season_labels, is_3d_map
 
@@ -173,11 +174,8 @@ def draw_donut_chart(time_filtered_offense):
 
     st.altair_chart((chart + text), theme="streamlit", use_container_width=True)
 
-def crime_rate_prediction(mcpp_census_df, comm_selected, season, season_labels, crime_rate_model):
-    season_encode = {'Fall': 0, 'Spring': 1, 'Summer': 2, 'Winter': 3}
-    mcpp_index = mcpp_census_df.index[mcpp_census_df['MCPP'] == comm_selected].values[0]
-
-    userInput = [mcpp_index, season_encode[season_labels[season]]]
+def crime_rate_prediction(mcpp_census_df, selected_mcpp_index, selected_season, crime_rate_model):
+    userInput = [selected_mcpp_index, selected_season]
 
     # gotta drop MCPP column
     mcpp_census_df = mcpp_census_df.drop(columns=['MCPP'])
@@ -189,6 +187,13 @@ def crime_rate_prediction(mcpp_census_df, comm_selected, season, season_labels, 
         return 0
     else:
         return pred_output
+
+def likelihood_prediction(selected_season, selected_mcpp_index, likelihood_model):
+    model_input = [[selected_season, selected_mcpp_index]]
+    predicted_top_offense = likelihood_model.predict(model_input)[0]
+    predicted_offense_prob = likelihood_model.predict_proba(model_input)[0]
+
+    return predicted_top_offense, max(predicted_offense_prob) * 100
 
 # cache data if possible
 @st.cache_data
@@ -203,13 +208,14 @@ def load_data():
     seattle_mcpp_complete = gpd.read_file("./data/seattle_crime_complete_mcp.json")
 
     # Loading model 
-    # crime_rate_model = joblib.load('./model/reg_lasso_crimeRate_all_SEASON.joblib')
     crime_rate_model = joblib.load('./model/reg_gb_crimeRate_gridCV_SEASON.joblib')
 
     mcpp_census_df = pd.read_csv("./data/mcpp_2010_PopulationDemographic_estimate_df.csv")
     cleaned_mcpp_census_df = mcpp_census_df.drop(columns=['Unnamed: 0'])
 
-    return crime_df, seattle_mcpp, seattle_mcpp_complete, crime_rate_model, cleaned_mcpp_census_df
+    likelihood_model = joblib.load('./model/CLF_grid_search_RF_SEASON.joblib')
+
+    return crime_df, seattle_mcpp, seattle_mcpp_complete, crime_rate_model, cleaned_mcpp_census_df, likelihood_model
 
 def main():
 
@@ -221,7 +227,7 @@ def main():
     st.title("Seattle Crime Dataset Demo")
 
     # load data
-    crime_df, seattle_mcpp, seattle_mcpp_complete, crime_rate_model, mcpp_census_df = load_data()
+    crime_df, seattle_mcpp, seattle_mcpp_complete, crime_rate_model, mcpp_census_df, likelihood_model = load_data()
     # build filters on sidebar
     year, year_labels, season, season_labels, is_3d_map = build_filters()
 
@@ -251,9 +257,31 @@ def main():
 
             if is_prediction and comm_selected != "All" and season_labels[season] != "All":
                 # prediction
-                pred_output = crime_rate_prediction(mcpp_census_df, comm_selected, season, season_labels, crime_rate_model)
+                season_encode = {'Fall': 0, 'Spring': 1, 'Summer': 2, 'Winter': 3}
+                offense_encode = ['Assault and Threatening Behavior', 
+                                  'Burglary and Trespassing', 
+                                  'Drug-Related Offenses',
+                                  'Fraud and Financial Crimes',
+                                  'Miscellaneous and Less Frequent Crimes',
+                                  'Other Thefts',
+                                  'Robbery and Serious Theft-Related Crimes', 
+                                  'Theft from Vehicles and Related Crimes', 
+                                  'Vandalism and Property Damage', 
+                                  'Weapon, Public Order, and Other Violations']
+
+                selected_mcpp_index = mcpp_census_df.index[mcpp_census_df['MCPP'] == comm_selected].values[0]
+                selected_season = season_encode[season_labels[season]]
+
+                # crime rate prediction
+                pred_output = crime_rate_prediction(mcpp_census_df, selected_mcpp_index, selected_season, crime_rate_model)
                 st.metric("Crime Rate Prediction(per 1000 people):", "{:.2f}".format(pred_output.flatten()[0]))
 
+                # likelihood prediction
+                predicted_top_offense, predicted_top_offense_prob = likelihood_prediction(selected_season, selected_mcpp_index, likelihood_model)
+                st.metric("Top Offense Prediction:", offense_encode[predicted_top_offense], "With {:.2f}% chance".format(predicted_top_offense_prob))
+
+            elif is_prediction:
+                st.text('Please select a Community or Season!');
             else:
                 # show data
                 time_filtered_offense = show_metric(crime_df, year, year_labels, season, season_labels, st_data)
