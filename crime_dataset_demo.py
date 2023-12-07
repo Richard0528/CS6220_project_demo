@@ -219,7 +219,10 @@ def load_data():
 
     likelihood_model = joblib.load('./model/CLF_grid_search_RF_SEASON.joblib')
 
-    return crime_df, seattle_mcpp, seattle_mcpp_complete, crime_rate_model, crime_rate_range_df, cleaned_mcpp_census_df, likelihood_model
+    # Crime forecast for 2024
+    future_crime_2024 = pd.read_csv('./data/futurecrime.csv')
+
+    return crime_df, seattle_mcpp, seattle_mcpp_complete, crime_rate_model, crime_rate_range_df, cleaned_mcpp_census_df, likelihood_model, future_crime_2024
 
 def main():
 
@@ -231,7 +234,7 @@ def main():
     st.title("Seattle Crime Dataset Demo")
 
     # load data
-    crime_df, seattle_mcpp, seattle_mcpp_complete, crime_rate_model, crime_rate_range_df, mcpp_census_df, likelihood_model = load_data()
+    crime_df, seattle_mcpp, seattle_mcpp_complete, crime_rate_model, crime_rate_range_df, mcpp_census_df, likelihood_model, future_crime_2024 = load_data()
     # build filters on sidebar
     year, year_labels, season, season_labels, is_3d_map = build_filters()
 
@@ -282,9 +285,25 @@ def main():
 
                 st.dataframe(crime_rate_range_df)
 
+                st.divider()
+
                 # likelihood prediction
                 predicted_top_offense, predicted_top_offense_prob = likelihood_prediction(selected_season, selected_mcpp_index, likelihood_model)
                 st.metric("Top Offense Prediction:", offense_encode[predicted_top_offense], "With {:.2f}% chance".format(predicted_top_offense_prob))
+
+                st.divider()
+
+                # 2024 forecast
+                if st_data["last_active_drawing"]:
+                    mcpp_selected = [st_data["last_active_drawing"]["properties"]["neighborho"]]
+
+                time_filtered_forecast = future_crime_2024.loc[
+                    (future_crime_2024['season'].isin([season_labels[season]])) &
+                    (future_crime_2024['MCPP'].isin(mcpp_selected))
+                ]
+
+                forecast_cnt = time_filtered_forecast['PredictedCrimeCount']
+                st.metric("Total crime count forecast for 2024: ", forecast_cnt)
 
             elif is_prediction:
                 st.text('Please select a Community or Season!');
