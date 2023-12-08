@@ -240,7 +240,7 @@ def main():
 
     is_prediction = year_labels[year] == "Future"
 
-    if is_3d_map:
+    if is_3d_map and not is_prediction:
         display_3d_map(seattle_mcpp, seattle_mcpp_complete, year, year_labels, season, season_labels)
 
     else:
